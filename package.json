@@ -1,7 +1,5 @@
 {
-  "name": "wss-mining-proxy",
+  "name": "wss-proxy",
   "version": "1.0.0",
-  "main": "proxy.js",
-  "dependencies": { "ws": "^8.17.0" },
-  "scripts": { "start": "node proxy.js" }
+  "dependencies": { "ws": "^8.18.2" }
 }
