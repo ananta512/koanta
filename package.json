@@ -1,5 +1,7 @@
 {
-  "name": "wss-proxy",
+  "name": "wss-stratum-proxy",
   "version": "1.0.0",
-  "dependencies": { "ws": "^8.18.2" }
+  "type": "module",
+  "dependencies": { "ws": "^8.17.0" },
+  "scripts": { "start": "node server.js" }
 }
