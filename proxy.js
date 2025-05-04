@@ -1,27 +1,35 @@
-// proxy.js
-const WebSocket = require('ws');
-const net       = require('net');
+// server.js
+import { createServer } from 'http';
+import { WebSocketServer } from 'ws';
+import net from 'net';
+import { Buffer } from 'buffer';
 
 const PORT = process.env.PORT || 8080;
-const wss  = new WebSocket.Server({ port: PORT });
+const httpServer = createServer();
+const wss = new WebSocketServer({ server: httpServer });
 
 wss.on('connection', (ws, req) => {
-  // URL format: /<base64(host:port)>, e.g. /bWlub3RhdXJ4Lm5hLm1pbmUuenBvb2wuY2E6NzAxOQ==
-  const b64 = req.url.slice(1);
-  const [host, port] = Buffer.from(b64, 'base64').toString().split(':');
+  const b64 = req.url.slice(1);               // "/cG93ZXI..."
+  let target;
+  try {
+    target = Buffer.from(b64, 'base64').toString(); // "host:port"
+  } catch (_) {
+    ws.close(1008, 'Bad base64'); return;
+  }
+  const [host, port] = target.split(':');
+  if (!host || !port) { ws.close(1008, 'Bad host'); return; }
 
-  const upstream = net.connect(+port, host);
+  const tcp = net.connect({ host, port: +port }, () => {
+    // Relay bytes in both directions
+    ws.on('message', data => tcp.write(data));
+    tcp.on('data', data => ws.send(data));
+  });
 
-  // pipe traffic both ways
-  ws.on('message',  data => upstream.write(data));
-  upstream.on('data',chunk => ws.send(chunk));
-
-  // tidy up on close/error
-  const closer = () => { try { upstream.destroy(); } catch {} try { ws.close(); } catch {} };
-  ws.on('close', closer);
-  upstream.on('close', closer);
-  ws.on('error',  closer);
-  upstream.on('error', closer);
+  // propagate errors & closes
+  const closeBoth = () => { ws.close(); tcp.destroy(); };
+  tcp.on('error', closeBoth); ws.on('close', closeBoth);
 });
 
-console.log(`WSS proxy listening on :${PORT}`);
+httpServer.listen(PORT, () => {
+  console.log('Proxy listening on', PORT);
+});
